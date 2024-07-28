@@ -5,16 +5,5 @@
   "compilerOptions": {
     "deleteOutDir": true,
     "webpack": true
-  },
-  "projects": {
-    "http-reponse": {
-      "type": "library",
-      "root": "libs/http-reponse",
-      "entryFile": "index",
-      "sourceRoot": "libs/http-reponse/src",
-      "compilerOptions": {
-        "tsConfigPath": "libs/http-reponse/tsconfig.lib.json"
-      }
-    }
   }
 }
