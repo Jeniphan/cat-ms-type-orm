@@ -13,7 +13,11 @@ export class BaseRepository {
   private readonly app_id: string;
 
   constructor(private dataSource: DataSource, private request: FastifyRequest) {
-    this.app_id = (request.headers['app-id'] as string) ?? '';
+    this.app_id = (request.headers['app-id'] as string) ?? '1';
+  }
+
+  get AppId() {
+    return this.app_id;
   }
 
   protected getRepository<T>(entityCls: new () => T): Repository<T> {
