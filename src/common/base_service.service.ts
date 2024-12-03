@@ -10,14 +10,13 @@ import { FastifyRequest } from 'fastify';
 import { IAdvanceFilter, IOptionCustomQuery } from '@dto/base.dto';
 
 export class BaseRepository {
-  private readonly app_id: string;
-
-  constructor(private dataSource: DataSource, private request: FastifyRequest) {
-    this.app_id = (request.headers['app-id'] as string) ?? '1';
-  }
+  constructor(
+    private dataSource: DataSource,
+    private request: FastifyRequest,
+  ) {}
 
   get AppId() {
-    return this.app_id;
+    return (this.request.headers['app_id'] as string) ?? '1';
   }
 
   protected getRepository<T>(entityCls: new () => T): Repository<T> {
@@ -61,7 +60,7 @@ export class BaseRepository {
       : 'app_id';
     return this.CustomQuery(repository, option).where(
       `${tableDotAppId} = :appId`,
-      { appId: this.app_id },
+      { appId: (this.request.headers['app_id'] as string) ?? '1' },
     );
   }
 

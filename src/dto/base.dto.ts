@@ -1,73 +1,95 @@
 import {
-  CanActivate,
-  ExecutionContext,
-  Injectable,
-  UnauthorizedException,
-} from '@nestjs/common';
-import { FastifyRequest } from 'fastify';
-import { HttpClientService, MessageResultAPI } from '@lib/http_client.service';
-import * as process from 'node:process';
-import { JwtService } from '@nestjs/jwt';
+  IsArray,
+  IsDateString,
+  IsIn,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Min,
+} from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
 
-@Injectable()
-export class ApplicationGuard implements CanActivate {
-  private readonly httpClient: HttpClientService;
-  private readonly jwtService: JwtService;
-  constructor() {
-    this.httpClient = new HttpClientService();
-    this.jwtService = new JwtService();
-  }
-  async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context.switchToHttp().getRequest();
-    let token = this.extractTokenFromHeader(request);
-    if (process.env.NODE_ENV === 'develop') {
-      token = await this.jwtService.signAsync(
-        {
-          applicationName: 'Login Service Dev',
-          id: 1,
-          key: 'NxHGrZGn+rVw5GbDyQg+Ik1dcbjwEXCPyKHxJdbFcBA=',
-        },
-        {
-          secret: process.env.SECRET_KEY_APPLICATION ?? '',
-        },
-      );
-    }
+export class IResponseAdvanceFilter<T> {
+  total: number;
+  total_page: number;
+  data: T[];
+}
 
-    if (!token) {
-      throw new UnauthorizedException();
-    }
+export class IAdvanceFilter {
+  @IsOptional()
+  @ApiProperty()
+  @IsArray()
+  filter_by?: string[];
 
-    try {
-      // 💡 We're assigning the payload to the request object here
-      // so that we can access it in our route handlers
-      const verifyToken: MessageResultAPI<string> =
-        await this.httpClient.CallApi({
-          baseURL: process.env.ENDPOINT_APPLICATION_MS,
-          method: process.env.METHOD_APPLICATION_VERIFY,
-          url: process.env.URL_APPLICATION_VERIFY,
-          data: {
-            token: token,
-          },
-        });
+  @ApiProperty()
+  @IsArray()
+  @IsOptional()
+  filter?: string[][];
 
-      if (!verifyToken || verifyToken.status !== 200) {
-        this.handleError('Verify Token have error!!');
-      }
-      request.headers['app_id'] = verifyToken.result;
-      return true;
-    } catch (err) {
-      this.handleError(err);
-    }
-  }
+  @ApiProperty()
+  @IsIn(['or', 'and'])
+  @IsString()
+  @IsOptional()
+  filter_condition?: 'and' | 'or' = 'and';
 
-  private extractTokenFromHeader(request: FastifyRequest): string | undefined {
-    const [type, token] = request.headers.authorization?.split(' ') ?? [];
-    return type === 'Bearer' ? token : undefined;
-  }
+  @ApiProperty()
+  @IsArray()
+  @IsOptional()
+  search_by?: string[];
 
-  private handleError(message?: string) {
-    throw new UnauthorizedException({
-      message: message,
-    });
-  }
+  @ApiProperty()
+  @IsString()
+  @IsOptional()
+  search?: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsOptional()
+  sort_by?: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsIn(['DESC', 'ASC'])
+  @IsOptional()
+  sort?: 'DESC' | 'ASC';
+
+  @ApiProperty()
+  @IsString()
+  @IsOptional()
+  filter_date_start_by?: string;
+
+  @ApiProperty()
+  @IsDateString()
+  @IsOptional()
+  start_date?: Date;
+
+  @ApiProperty()
+  @IsString()
+  @IsOptional()
+  filter_date_end_by?: string;
+
+  @ApiProperty()
+  @IsDateString()
+  @IsOptional()
+  end_date?: Date;
+
+  @ApiProperty()
+  @IsNumber()
+  @Min(1)
+  @IsOptional()
+  page?: number;
+
+  @ApiProperty()
+  @IsNumber()
+  @Min(1)
+  @IsOptional()
+  per_page?: number;
+}
+
+export interface IOptionCustomQuery {
+  table_alias?: string;
+  preload?: string[];
+  user_id_alias?: string;
+
+  [Key: string]: any;
 }
