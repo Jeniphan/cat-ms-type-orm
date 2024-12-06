@@ -19,18 +19,10 @@ export class ApplicationGuard implements CanActivate {
   }
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
-    let token = this.extractTokenFromHeader(request);
+    const token = this.extractTokenFromHeader(request);
     if (process.env.NODE_ENV === 'develop') {
-      token = await this.jwtService.signAsync(
-        {
-          applicationName: 'Login Service Dev',
-          id: 1,
-          key: 'NxHGrZGn+rVw5GbDyQg+Ik1dcbjwEXCPyKHxJdbFcBA=',
-        },
-        {
-          secret: process.env.SECRET_KEY_APPLICATION ?? '',
-        },
-      );
+      request.headers['app_id'] = '2de96516-8e1e-4258-b48e-f6e5056ded81';
+      return true;
     }
 
     if (!token) {
