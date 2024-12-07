@@ -8,6 +8,8 @@ import {
   Min,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+import { IsDoubleArrayOfType } from '../validator/base.validator';
 
 export class IResponseAdvanceFilter<T> {
   total: number;
@@ -17,16 +19,27 @@ export class IResponseAdvanceFilter<T> {
 
 export class IAdvanceFilter {
   @IsOptional()
-  @ApiProperty()
+  @ApiProperty({
+    type: () => String,
+    isArray: true,
+  })
+  @IsString({ each: true })
   @IsArray()
+  @Type(() => String)
   filter_by?: string[];
 
-  @ApiProperty()
+  @ApiProperty({
+    isArray: true,
+    example: [['example']],
+  })
+  @IsDoubleArrayOfType('string')
   @IsArray()
-  @IsOptional()
   filter?: string[][];
 
-  @ApiProperty()
+  @ApiProperty({
+    enum: ['and', 'or'],
+    default: 'and',
+  })
   @IsIn(['or', 'and'])
   @IsString()
   @IsOptional()
@@ -47,7 +60,10 @@ export class IAdvanceFilter {
   @IsOptional()
   sort_by?: string;
 
-  @ApiProperty()
+  @ApiProperty({
+    enum: ['DESC', 'ASC'],
+    default: 'ASC',
+  })
   @IsString()
   @IsIn(['DESC', 'ASC'])
   @IsOptional()

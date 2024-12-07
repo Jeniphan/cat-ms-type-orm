@@ -32,6 +32,13 @@
       ],
       "@guards/*": [
         "src/guards/*"
+      ],
+      "@common/*": [
+        "src/common/*"
+      ],
+      ,
+      "@validators/*": [
+        "src/validators/*"
       ]
     }
   }
