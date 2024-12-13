@@ -1,15 +1,7 @@
-import {
-  IsArray,
-  IsDateString,
-  IsIn,
-  IsNumber,
-  IsOptional,
-  IsString,
-  Min,
-} from 'class-validator';
+import { IsArray, IsDateString, IsIn, IsNumber, IsOptional, IsString, Min } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsDoubleArrayOfType } from '../validator/base.validator';
+import { IsDoubleArrayOfType } from '@validators/base.validater';
 
 export class IResponseAdvanceFilter<T> {
   total: number;
@@ -34,6 +26,7 @@ export class IAdvanceFilter {
   })
   @IsDoubleArrayOfType('string')
   @IsArray()
+  @IsOptional()
   filter?: string[][];
 
   @ApiProperty({
@@ -44,6 +37,34 @@ export class IAdvanceFilter {
   @IsString()
   @IsOptional()
   filter_condition?: 'and' | 'or' = 'and';
+
+  @IsOptional()
+  @ApiProperty({
+    type: () => String,
+    isArray: true,
+  })
+  @IsString({ each: true })
+  @IsArray()
+  @Type(() => String)
+  filter_nested_by?: string[];
+
+  @ApiProperty({
+    isArray: true,
+    example: [['example']],
+  })
+  @IsDoubleArrayOfType('string')
+  @IsArray()
+  @IsOptional()
+  filter_nested?: string[][];
+
+  @ApiProperty({
+    enum: ['and', 'or'],
+    default: 'and',
+  })
+  @IsIn(['or', 'and'])
+  @IsString()
+  @IsOptional()
+  filter_nested_condition: 'and' | 'or' = 'and';
 
   @ApiProperty()
   @IsArray()
@@ -106,6 +127,10 @@ export interface IOptionCustomQuery {
   table_alias?: string;
   preload?: string[];
   user_id_alias?: string;
+  parent_table?: string;
+  nested_table?: string;
+  app_id?: boolean;
+  with_parent_app_id?: boolean;
 
   [Key: string]: any;
 }

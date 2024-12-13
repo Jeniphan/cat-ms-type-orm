@@ -1,10 +1,4 @@
-import {
-  Brackets,
-  DataSource,
-  EntityManager,
-  Repository,
-  SelectQueryBuilder,
-} from 'typeorm';
+import { Brackets, DataSource, EntityManager, Repository, SelectQueryBuilder } from 'typeorm';
 import { ENTITY_MANAGER_KEY } from './transaction.interceptor';
 import { FastifyRequest } from 'fastify';
 import { IAdvanceFilter, IOptionCustomQuery } from '@dto/base.dto';
@@ -64,6 +58,19 @@ export class BaseRepository {
     );
   }
 
+  protected CustomQueryParentWithAppId<T>(
+    repository: new () => T,
+    option?: IOptionCustomQuery,
+  ) {
+    // const tableDotAppId = option?.table_alias
+    return this.CustomQuery(repository, option).innerJoinAndSelect(
+      `${option.table_alias}.${option.parent_table}`,
+      `${option.parent_table}`,
+      `${option.parent_table}.app_id = :app_id`,
+      { app_id: this.AppId },
+    );
+  }
+
   protected async AdvanceFilter<T>(
     query: IAdvanceFilter,
     repository: new () => T,
@@ -76,6 +83,16 @@ export class BaseRepository {
 
     if (option && option.app_id) {
       q = this.CustomQueryWithAppId(repository, option);
+    } else if (option && option.with_parent_app_id && option.parent_table) {
+      q = this.CustomQueryParentWithAppId(repository, option);
+    }
+
+    //Join Table Nested
+    if (option.nested_table) {
+      q = q.leftJoinAndSelect(
+        `${option.table_alias}.${option.nested_table}s`,
+        option.nested_table,
+      );
     }
 
     let total = 0;
@@ -117,6 +134,51 @@ export class BaseRepository {
                 } in (:...filter)`,
                 {
                   filter: query.filter[index],
+                },
+              );
+            });
+          }),
+        );
+      }
+    }
+
+    //filter nested
+    if (
+      query.filter_nested_by &&
+      query.filter_nested_by.length > 0 &&
+      query.filter_nested &&
+      query.filter_nested.length > 0
+    ) {
+      if (query.filter_nested_condition === 'and') {
+        q = q.andWhere(
+          new Brackets((qb) => {
+            query.filter_nested_by.map((filter_nested_by, index) => {
+              qb = qb.where(
+                `${
+                  option?.nested_table
+                    ? `${option.nested_table}.${filter_nested_by}`
+                    : filter_nested_by
+                } IN (:...filter)`,
+                {
+                  filter: query.filter_nested[index],
+                },
+              );
+            });
+          }),
+        );
+      } else {
+        // Condition 'or'
+        q = q.andWhere(
+          new Brackets((qb) => {
+            query.filter_nested_by.map((filter_nested_by, index) => {
+              qb = qb.orWhere(
+                `${
+                  option?.nested_table
+                    ? `${option.nested_table}.${filter_nested_by}`
+                    : filter_nested_by
+                } in (:...filter)`,
+                {
+                  filter: query.filter_nested[index],
                 },
               );
             });
