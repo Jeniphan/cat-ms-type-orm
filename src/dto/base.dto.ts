@@ -111,6 +111,25 @@ export class IAdvanceFilter {
   end_date?: Date;
 
   @ApiProperty()
+  @IsString()
+  @IsOptional()
+  group_by?: string
+
+  @ApiProperty({
+    enum: ['DESC', 'ASC'],
+    default: 'ASC',
+  })
+  @IsString()
+  @IsIn(['DESC', 'ASC'])
+  @IsOptional()
+  group_sort?: 'DESC' | 'ASC' = 'ASC';
+
+  @ApiProperty()
+  @IsString()
+  @IsOptional()
+  group_sort_by?: string
+
+  @ApiProperty()
   @IsNumber()
   @Min(1)
   @IsOptional()
