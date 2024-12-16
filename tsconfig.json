@@ -36,7 +36,6 @@
       "@common/*": [
         "src/common/*"
       ],
-      ,
       "@validators/*": [
         "src/validators/*"
       ]

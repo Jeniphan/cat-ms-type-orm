@@ -79,12 +79,18 @@ export class BaseRepository {
     data: T[];
     total: number;
   }> {
-    let q = this.CustomQuery<T>(repository, {...option, table_alias: 't1'});
+    let q = this.CustomQuery<T>(repository, { ...option, table_alias: 't1' });
 
     if (option && option.app_id) {
-      q = this.CustomQueryWithAppId(repository, {...option, table_alias: 't1'});
+      q = this.CustomQueryWithAppId(repository, {
+        ...option,
+        table_alias: 't1',
+      });
     } else if (option && option.with_parent_app_id && option.parent_table) {
-      q = this.CustomQueryParentWithAppId(repository, {...option, table_alias: 't1'});
+      q = this.CustomQueryParentWithAppId(repository, {
+        ...option,
+        table_alias: 't1',
+      });
     }
 
     //Join Table Nested
@@ -108,12 +114,9 @@ export class BaseRepository {
         q = q.andWhere(
           new Brackets((qb) => {
             query.filter_by.map((filter_by, index) => {
-              qb = qb.where(
-                `t1.${filter_by} in (:...filter)`,
-                {
-                  filter: query.filter[index],
-                },
-              );
+              qb = qb.where(`t1.${filter_by} in (:...filter)`, {
+                filter: query.filter[index],
+              });
             });
           }),
         );
@@ -122,12 +125,9 @@ export class BaseRepository {
         q = q.andWhere(
           new Brackets((qb) => {
             query.filter_by.map((filter_by, index) => {
-              qb = qb.orWhere(
-                `t1.${filter_by} in (:...filter)`,
-                {
-                  filter: query.filter[index],
-                },
-              );
+              qb = qb.orWhere(`t1.${filter_by} in (:...filter)`, {
+                filter: query.filter[index],
+              });
             });
           }),
         );
@@ -189,12 +189,9 @@ export class BaseRepository {
       q = q.andWhere(
         new Brackets((qb) => {
           query.search_by.map((search_by) => {
-            qb = qb.orWhere(
-              `t1.${search_by} like :search`,
-              {
-                search: `%${query.search}%`,
-              },
-            );
+            qb = qb.orWhere(`t1.${search_by} like :search`, {
+              search: `%${query.search}%`,
+            });
           });
         }),
       );
@@ -206,12 +203,9 @@ export class BaseRepository {
       query.filter_date_start_by !== '' &&
       query.start_date
     ) {
-      q = q.andWhere(
-        `t1.${query.filter_date_start_by} >= :start_date`,
-        {
-          start_date: query.start_date,
-        },
-      );
+      q = q.andWhere(`t1.${query.filter_date_start_by} >= :start_date`, {
+        start_date: query.start_date,
+      });
     }
 
     //End
@@ -220,40 +214,43 @@ export class BaseRepository {
       query.filter_date_end_by !== '' &&
       query.end_date
     ) {
-      q = q.where(
-        `t1.${query.filter_date_end_by} <= :end_date`,
-        {
-          end_date: query.end_date,
-        },
-      );
+      q = q.where(`t1.${query.filter_date_end_by} <= :end_date`, {
+        end_date: query.end_date,
+      });
     }
 
     //Sort
     if (query.sort && query.sort_by && query.sort_by !== '') {
-      q = q.orderBy(
-        `t1.${query.sort_by}`,
-        query.sort,
-      );
+      q = q.orderBy(`t1.${query.sort_by}`, query.sort);
     }
 
     //Group by
-    if(query.group_by && query.group_sort_by && query.group_sort && option.table_alias) {
-      if(query.group_sort === 'DESC') {
-      q = q.from(subQuery => {
-        return subQuery.select(`${query.group_by} MAX(${query.group_sort_by}) as order`).groupBy(query.group_by)
-      }, "t2")
-
+    if (query.group_by && query.group_sort_by && query.group_sort) {
+      if (query.group_sort === 'DESC') {
+        q = q.innerJoinAndSelect(
+          (subQuery) => {
+            return subQuery
+              .from(repository, 'g')
+              .select(`g.${query.group_by}`, query.group_by) // Select app_id for joining condition
+              .addSelect(`MAX(g.${query.group_sort_by})`, 'm') // Get maximum id for each app_id
+              .groupBy(`g.${query.group_by}`); // Group by app_id to ensure uniqueness
+          },
+          't2', // Alias for the subquery
+          `t1.${query.group_by} = t2.${query.group_by} AND t1.${query.group_sort_by} = t2.m`,
+        );
       } else {
-        q = q.from(subQuery => {
-          return subQuery.select(`${query.group_by} MIN(${query.group_sort_by}) as order`).groupBy(query.group_by)
-        }, "t2")
+        q = q.innerJoinAndSelect(
+          (subQuery) => {
+            return subQuery
+              .from(repository, 'g')
+              .select(`g.${query.group_by}`, query.group_by) // Select app_id for joining condition
+              .addSelect(`MIN(g.${query.group_sort_by})`, 'm') // Get maximum id for each app_id
+              .groupBy(`g.${query.group_by}`); // Group by app_id to ensure uniqueness
+          },
+          't2', // Alias for the subquery
+          `t1.${query.group_by} = t2.${query.group_by} AND t1.${query.group_sort_by} = t2.m`,
+        );
       }
-
-      q = q.innerJoinAndSelect(
-        repository,
-        't1',
-        `'t1'.${query.group_by} = t2.${query.group_by} AND 't1'.${query.group_sort_by} = t2.order`)
-
     }
 
     total = (await q.getMany()).length;
