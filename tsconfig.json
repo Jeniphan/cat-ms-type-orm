@@ -38,7 +38,10 @@
       ],
       "@validators/*": [
         "src/validators/*"
-      ]
+      ],
+      "@Database/*": [
+        "src/database/*"
+      ],
     }
   }
 }
