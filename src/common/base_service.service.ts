@@ -8,6 +8,7 @@ import {
 import { ENTITY_MANAGER_KEY } from './transaction.interceptor';
 import { FastifyRequest } from 'fastify';
 import { IAdvanceFilter, IOptionCustomQuery } from '@dto/base.dto';
+import { UUIDV4 } from '../helper/uuid.helper';
 
 export class BaseRepository {
   constructor(
@@ -79,29 +80,43 @@ export class BaseRepository {
     }
 
     let total = 0;
-    // filter
+    // Filter
     if (
       query.filter_by &&
       query.filter_by.length > 0 &&
       query.filter &&
       query.filter.length > 0
     ) {
-      //condition 'and'
+      // Condition 'and'
       if (query.filter_condition === 'and') {
         q = q.andWhere(
           new Brackets((qb) => {
             query.filter_by.forEach((filter_by, index) => {
-              const key = 'filter_' + index;
-              qb = qb.andWhere(
-                `${
-                  option?.table_alias
-                    ? `${option.table_alias}.${filter_by}`
-                    : filter_by
-                } in (:...${key})`,
-                {
-                  [key]: query.filter[index],
-                },
-              );
+              const uuid = UUIDV4().split('-')[0];
+              const key = uuid + '_' + index;
+              if (filter_by.includes('.')) {
+                const [jsonColumn, jsonField] = filter_by.split('.');
+
+                qb = qb.andWhere(
+                  `JSON_UNQUOTE(JSON_EXTRACT(${
+                    option?.table_alias
+                      ? `${option.table_alias}.${jsonColumn}`
+                      : jsonColumn
+                  }, '$.${jsonField}')) in (:...${key})`,
+                  { [key]: query.filter[index] },
+                );
+              } else {
+                qb = qb.andWhere(
+                  `${
+                    option?.table_alias
+                      ? `${option.table_alias}.${filter_by}`
+                      : filter_by
+                  } in (:...${key})`,
+                  {
+                    [key]: query.filter[index],
+                  },
+                );
+              }
             });
           }),
         );
@@ -110,17 +125,30 @@ export class BaseRepository {
         q = q.andWhere(
           new Brackets((qb) => {
             query.filter_by.forEach((filter_by, index) => {
-              const key = 'filter_' + index;
-              qb = qb.orWhere(
-                `${
-                  option?.table_alias
-                    ? `${option.table_alias}.${filter_by}`
-                    : filter_by
-                } in (:...${key})`,
-                {
-                  [key]: query.filter[index],
-                },
-              );
+              const uuid = UUIDV4().split('-')[0];
+              const key = uuid + '_' + index;
+              if (filter_by.includes('.')) {
+                const [jsonColumn, jsonField] = filter_by.split('.');
+                qb = qb.orWhere(
+                  `JSON_UNQUOTE(JSON_EXTRACT(${
+                    option?.table_alias
+                      ? `${option.table_alias}.${jsonColumn}`
+                      : jsonColumn
+                  }, '$.${jsonField}')) in (:...${key})`,
+                  { [key]: query.filter[index] },
+                );
+              } else {
+                qb = qb.orWhere(
+                  `${
+                    option?.table_alias
+                      ? `${option.table_alias}.${filter_by}`
+                      : filter_by
+                  } in (:...${key})`,
+                  {
+                    [key]: query.filter[index],
+                  },
+                );
+              }
             });
           }),
         );
@@ -137,16 +165,30 @@ export class BaseRepository {
       q = q.andWhere(
         new Brackets((qb) => {
           query.search_by.map((search_by) => {
-            qb = qb.orWhere(
-              `${
-                option?.table_alias
-                  ? `${option.table_alias}.${search_by}`
-                  : search_by
-              } like :search`,
-              {
-                search: `%${query.search}%`,
-              },
-            );
+            if (search_by.includes('.')) {
+              const [jsonColumn, jsonField] = search_by.split('.');
+              qb = qb.orWhere(
+                `JSON_UNQUOTE(JSON_EXTRACT(${
+                  option?.table_alias
+                    ? `${option.table_alias}.${jsonColumn}`
+                    : jsonColumn
+                }, '$.${jsonField}')) like :search`,
+                {
+                  search: `%${query.search}%`,
+                },
+              );
+            } else {
+              qb = qb.orWhere(
+                `${
+                  option?.table_alias
+                    ? `${option.table_alias}.${search_by}`
+                    : search_by
+                } like :search`,
+                {
+                  search: `%${query.search}%`,
+                },
+              );
+            }
           });
         }),
       );
@@ -158,16 +200,30 @@ export class BaseRepository {
       query.filter_date_start_by !== '' &&
       query.start_date
     ) {
-      q = q.andWhere(
-        `${
-          option?.table_alias
-            ? `${option.table_alias}.${query.filter_date_start_by}`
-            : query.filter_date_start_by
-        } >= :start_date`,
-        {
-          start_date: query.start_date,
-        },
-      );
+      if (query.filter_date_start_by.includes('.')) {
+        const [jsonColumn, jsonField] = query.filter_date_start_by.split('.');
+        q = q.andWhere(
+          `JSON_UNQUOTE(JSON_EXTRACT(${
+            option?.table_alias
+              ? `${option.table_alias}.${jsonColumn}`
+              : jsonColumn
+          }, '$.${jsonField}')) >= :start_date`,
+          {
+            start_date: query.start_date,
+          },
+        );
+      } else {
+        q = q.andWhere(
+          `${
+            option?.table_alias
+              ? `${option.table_alias}.${query.filter_date_start_by}`
+              : query.filter_date_start_by
+          } >= :start_date`,
+          {
+            start_date: query.start_date,
+          },
+        );
+      }
     }
 
     //End
@@ -176,28 +232,56 @@ export class BaseRepository {
       query.filter_date_end_by !== '' &&
       query.end_date
     ) {
-      q = q.where(
-        `${
-          option?.table_alias
-            ? `${option.table_alias}.${query.filter_date_end_by}`
-            : query.filter_date_end_by
-        } <= :end_date`,
-        {
-          end_date: query.end_date,
-        },
-      );
+      if (query.filter_date_end_by.includes('.')) {
+        const [jsonColumn, jsonField] = query.filter_date_end_by.split('.');
+        q = q.andWhere(
+          `JSON_UNQUOTE(JSON_EXTRACT(${
+            option?.table_alias
+              ? `${option.table_alias}.${jsonColumn}`
+              : jsonColumn
+          }, '$.${jsonField}')) >= :end_date`,
+          {
+            end_date: query.end_date,
+          },
+        );
+      } else {
+        q = q.andWhere(
+          `${
+            option?.table_alias
+              ? `${option.table_alias}.${query.filter_date_end_by}`
+              : query.filter_date_end_by
+          } <= :end_date`,
+          {
+            end_date: query.end_date,
+          },
+        );
+      }
     }
 
     //Sort
     if (query.sort && query.sort_by && query.sort_by !== '') {
-      q = q.orderBy(
-        `${
-          option?.table_alias
-            ? `${option.table_alias}.${query.sort_by}`
-            : query.sort_by
-        }`,
-        query.sort,
-      );
+      if (query.sort_by.includes('.')) {
+        const [jsonColumn, jsonField] = query.sort_by.split('.');
+        const uuid = UUIDV4().split('-')[0];
+        q = q.addSelect(
+          `JSON_UNQUOTE(JSON_EXTRACT(${
+            option?.table_alias
+              ? `${option.table_alias}.${jsonColumn}`
+              : jsonColumn
+          }, '$.${jsonField}'))`,
+          uuid,
+        );
+        q = q.orderBy(uuid, query.sort);
+      } else {
+        q = q.orderBy(
+          `${
+            option?.table_alias
+              ? `${option.table_alias}.${query.sort_by}`
+              : query.sort_by
+          }`,
+          query.sort,
+        );
+      }
     }
 
     //Group
@@ -238,7 +322,10 @@ export class BaseRepository {
         },
         // StockEntity,
         'subQuery',
-        onTable + ` AND group_sort_value = ${query.group_sort_by}`,
+        onTable +
+          ` AND group_sort_value = ${
+            option.table_alias ? option.table_alias + '.' : undefined
+          }${query.group_sort_by}`,
       );
     }
 
@@ -251,12 +338,25 @@ export class BaseRepository {
       query.per_page &&
       query.per_page !== 0
     ) {
-      if (query.page <= 1) query.page = 0;
-      q = q.skip(query.page * query.per_page).take(query.per_page);
+      // if (query.page <= 1) query.page = 0;
+      q = q.skip((query.page - 1) * query.per_page).take(query.per_page);
     }
     return {
       data: await q.getMany(),
       total,
     };
+  }
+
+  protected CustomQueryParentWithAppId<T>(
+    repository: new () => T,
+    option?: IOptionCustomQuery,
+  ) {
+    // const tableDotAppId = option?.table_alias
+    return this.CustomQuery(repository, option).innerJoinAndSelect(
+      `${option.table_alias}.${option.parent_table}`,
+      `${option.parent_table}`,
+      `${option.parent_table}.app_id = :app_id`,
+      { app_id: this.AppId },
+    );
   }
 }
