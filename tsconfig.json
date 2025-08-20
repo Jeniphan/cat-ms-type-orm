@@ -42,6 +42,9 @@
       "@Database/*": [
         "src/database/*"
       ],
+      "@helper/*": [
+        "src/helper/*"
+      ]
     }
   }
 }
