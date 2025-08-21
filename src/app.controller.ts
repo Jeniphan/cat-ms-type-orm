@@ -1,19 +1,25 @@
-import { Controller, Get, Res } from '@nestjs/common';
-import { AppService } from './app.service';
-import { FastifyReply } from 'fastify';
-import ApiResponse from './lib/http-response';
+import { Controller, Get } from '@nestjs/common';
+import {
+  HealthCheck,
+  HealthCheckService,
+  MemoryHealthIndicator,
+  TypeOrmHealthIndicator,
+} from '@nestjs/terminus';
 
 @Controller()
 export class AppController {
-  constructor(private readonly appService: AppService) {}
+  constructor(
+    private health: HealthCheckService,
+    private db: TypeOrmHealthIndicator,
+    private memory: MemoryHealthIndicator,
+  ) {}
 
   @Get('/health-check')
-  healthCheck(@Res() res: FastifyReply) {
-    try {
-      const result = this.appService.healthCheckService();
-      return new ApiResponse(res).handle(result);
-    } catch (err) {
-      return new ApiResponse(res).error(err);
-    }
+  @HealthCheck()
+  check() {
+    return this.health.check([
+      () => this.db.pingCheck('database'),
+      () => this.memory.checkHeap('memory_heap', 150 * 1024 * 1024),
+    ]);
   }
 }

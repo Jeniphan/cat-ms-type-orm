@@ -1,9 +1,11 @@
 import {
+  BadRequestException,
   HttpException,
   HttpStatus,
   InternalServerErrorException,
 } from '@nestjs/common';
 import { FastifyReply } from 'fastify';
+import { ZodError } from 'zod';
 
 export default class ApiResponse {
   constructor(private readonly reply: FastifyReply) {}
@@ -15,6 +17,8 @@ export default class ApiResponse {
   public error(err) {
     if (err instanceof HttpException) {
       throw err;
+    } else if (err instanceof ZodError) {
+      throw new BadRequestException(err.message);
     } else {
       throw new InternalServerErrorException(err.message);
     }

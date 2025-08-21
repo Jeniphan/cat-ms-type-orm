@@ -3,11 +3,13 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ConfigModule } from '@nestjs/config';
 import { HttpClientService } from '@lib/http_client.service';
-import { CacheModule } from './database/cache/cache.module';
+import { CacheModule } from '@Database/cache/cache.module';
+import { TerminusModule } from '@nestjs/terminus';
 
 @Module({
   imports: [
     ConfigModule.forRoot(),
+    TerminusModule,
     CacheModule,
     // TypeOrmModule.forRootAsync({
     //   useFactory: async () => ({

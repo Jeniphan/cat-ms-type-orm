@@ -4,7 +4,7 @@ import {
   FastifyAdapter,
   NestFastifyApplication,
 } from '@nestjs/platform-fastify';
-import { ValidationPipe } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { HttpExceptionFilter } from './helper/http-exception.filter';
 import { ApplicationGuard } from './application/application.guard';
@@ -54,8 +54,9 @@ async function bootstrap() {
   });
 
   await app.listen(port, '0.0.0.0');
-  console.log(`LISTEN ON PORT : ${port}`);
-  console.log(`${await app.getUrl()}/docs`);
+  const logger = new Logger();
+  logger.log(`🚀LISTEN ON PORT : ${port} 🚀`);
+  logger.log(`📚 ${await app.getUrl()}/docs`);
 }
 
 bootstrap();
