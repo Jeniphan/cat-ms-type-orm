@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { Cache, Milliseconds } from 'cache-manager';
+import { Cache } from 'cache-manager';
 
 @Injectable()
 export default class CacheService {
@@ -35,7 +35,7 @@ export default class CacheService {
     app_id: string,
     key: string,
     value: T,
-    ttl?: Milliseconds,
+    ttl?: number,
   ) {
     await this.cacheManager.set(
       this.generateKey(table_name, app_id, key),
