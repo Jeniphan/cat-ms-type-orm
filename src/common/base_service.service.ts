@@ -301,7 +301,7 @@ export class BaseService {
                       : query.start_by
                   } >= :start_date`,
                   {
-                    start_date: parseInt(query.start),
+                    start_date: query.start,
                   },
                 );
               }
@@ -318,7 +318,7 @@ export class BaseService {
                       : jsonColumn
                   }, '$.${jsonField}')) >= :end_date`,
                   {
-                    end_date: parseInt(query.end),
+                    end_date: query.end,
                   },
                 );
               } else {
@@ -357,7 +357,7 @@ export class BaseService {
                       : query.start_by
                   } >= :start_date`,
                   {
-                    start_date: parseInt(query.start),
+                    start_date: query.end,
                   },
                 );
               }
@@ -374,7 +374,7 @@ export class BaseService {
                       : jsonColumn
                   }, '$.${jsonField}')) >= :end_date`,
                   {
-                    end_date: parseInt(query.end),
+                    end_date: query.end,
                   },
                 );
               } else {
