@@ -69,13 +69,18 @@ export class IAdvanceFilter {
   start_by?: string;
 
   @ApiProperty()
-  start?: Date;
+  start?: string;
 
   @ApiProperty()
   end_by?: string;
 
   @ApiProperty()
-  end?: Date;
+  end?: string;
+
+  @ApiProperty({
+    enum: ['and', 'or'],
+  })
+  start_and_end_condition?: 'and' | 'or' = 'and';
 
   @ApiProperty({
     type: [String],

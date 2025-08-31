@@ -274,60 +274,126 @@ export class BaseService {
       );
     }
 
-    //Start
-    if (query.start_by && query.start_by !== '' && query.start) {
-      if (query.start_by.includes('.')) {
-        const [jsonColumn, jsonField] = query.start_by.split('.');
-        q = q.andWhere(
-          `JSON_UNQUOTE(JSON_EXTRACT(${
-            option?.table_alias
-              ? `${option.table_alias}.${jsonColumn}`
-              : jsonColumn
-          }, '$.${jsonField}')) >= :start_date`,
-          {
-            start_date: query.start,
-          },
-        );
-      } else {
-        q = q.andWhere(
-          `${
-            option?.table_alias
-              ? `${option.table_alias}.${query.start_by}`
-              : query.start_by
-          } >= :start_date`,
-          {
-            start_date: query.start,
-          },
-        );
-      }
-    }
+    //Start And End
+    if ((query.start && query.start_by) || (query.end && query.end_by)) {
+      q = q.andWhere(
+        new Brackets((qb) => {
+          if (query.start_and_end_condition === 'and') {
+            //Start
+            if (query.start && query.start_by) {
+              if (query.start_by.includes('.')) {
+                const [jsonColumn, jsonField] = query.start_by.split('.');
+                qb = qb.andWhere(
+                  `JSON_UNQUOTE(JSON_EXTRACT(${
+                    option?.table_alias
+                      ? `${option.table_alias}.${jsonColumn}`
+                      : jsonColumn
+                  }, '$.${jsonField}')) >= :start_date`,
+                  {
+                    start_date: query.start,
+                  },
+                );
+              } else {
+                qb = qb.andWhere(
+                  `${
+                    option?.table_alias
+                      ? `${option.table_alias}.${query.start_by}`
+                      : query.start_by
+                  } >= :start_date`,
+                  {
+                    start_date: parseInt(query.start),
+                  },
+                );
+              }
+            }
 
-    //End
-    if (query.end_by && query.end_by !== '' && query.end) {
-      if (query.end_by.includes('.')) {
-        const [jsonColumn, jsonField] = query.end_by.split('.');
-        q = q.andWhere(
-          `JSON_UNQUOTE(JSON_EXTRACT(${
-            option?.table_alias
-              ? `${option.table_alias}.${jsonColumn}`
-              : jsonColumn
-          }, '$.${jsonField}')) >= :end_date`,
-          {
-            end_date: query.end,
-          },
-        );
-      } else {
-        q = q.andWhere(
-          `${
-            option?.table_alias
-              ? `${option.table_alias}.${query.end_by}`
-              : query.end_by
-          } <= :end_date`,
-          {
-            end_date: query.end,
-          },
-        );
-      }
+            //End
+            if (query.end && query.end_by) {
+              if (query.end_by.includes('.')) {
+                const [jsonColumn, jsonField] = query.end_by.split('.');
+                qb = qb.andWhere(
+                  `JSON_UNQUOTE(JSON_EXTRACT(${
+                    option?.table_alias
+                      ? `${option.table_alias}.${jsonColumn}`
+                      : jsonColumn
+                  }, '$.${jsonField}')) >= :end_date`,
+                  {
+                    end_date: parseInt(query.end),
+                  },
+                );
+              } else {
+                qb = qb.andWhere(
+                  `${
+                    option?.table_alias
+                      ? `${option.table_alias}.${query.end_by}`
+                      : query.end_by
+                  } <= :end_date`,
+                  {
+                    end_date: query.end,
+                  },
+                );
+              }
+            }
+          } else {
+            //Start
+            if (query.start && query.start_by) {
+              if (query.start_by.includes('.')) {
+                const [jsonColumn, jsonField] = query.start_by.split('.');
+                qb = qb.orWhere(
+                  `JSON_UNQUOTE(JSON_EXTRACT(${
+                    option?.table_alias
+                      ? `${option.table_alias}.${jsonColumn}`
+                      : jsonColumn
+                  }, '$.${jsonField}')) >= :start_date`,
+                  {
+                    start_date: query.start,
+                  },
+                );
+              } else {
+                qb = qb.orWhere(
+                  `${
+                    option?.table_alias
+                      ? `${option.table_alias}.${query.start_by}`
+                      : query.start_by
+                  } >= :start_date`,
+                  {
+                    start_date: parseInt(query.start),
+                  },
+                );
+              }
+            }
+
+            //End
+            if (query.end && query.end_by) {
+              if (query.end_by.includes('.')) {
+                const [jsonColumn, jsonField] = query.end_by.split('.');
+                qb = qb.orWhere(
+                  `JSON_UNQUOTE(JSON_EXTRACT(${
+                    option?.table_alias
+                      ? `${option.table_alias}.${jsonColumn}`
+                      : jsonColumn
+                  }, '$.${jsonField}')) >= :end_date`,
+                  {
+                    end_date: parseInt(query.end),
+                  },
+                );
+              } else {
+                qb = qb.orWhere(
+                  `${
+                    option?.table_alias
+                      ? `${option.table_alias}.${query.end_by}`
+                      : query.end_by
+                  } <= :end_date`,
+                  {
+                    end_date: query.end,
+                  },
+                );
+              }
+            }
+          }
+          return qb;
+        }),
+      );
     }
 
     //Sort
