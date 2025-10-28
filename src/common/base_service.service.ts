@@ -195,12 +195,12 @@ export class BaseService {
               qb = qb.orWhere(
                 new Brackets((subQb) => {
                   if (includeVals.length > 0) {
-                    subQb.andWhere(`${expr} IN (:...${keyIn})`, {
+                    subQb = subQb.andWhere(`${expr} IN (:...${keyIn})`, {
                       [keyIn]: includeVals,
                     });
                   }
                   if (excludeVals.length > 0) {
-                    subQb.andWhere(`${expr} NOT IN (:...${keyNotIn})`, {
+                    subQb = subQb.andWhere(`${expr} NOT IN (:...${keyNotIn})`, {
                       [keyNotIn]: excludeVals,
                     });
                   }
@@ -471,10 +471,10 @@ export class BaseService {
               : jsonColumn
           }, '$.${jsonField}'))`;
         } else {
-          // Handle regular column grouping
-          aliasName = group_by;
-          groupExpression = `subQuery.${group_by}`;
-          selectExpression = `sub.${group_by}`;
+          // Handle regular column grouping - use sub_ prefix for alias
+          aliasName = `sub_${group_by}`;
+          groupExpression = `subQuery.${aliasName}`;
+          selectExpression = `sub.${group_by} as ${aliasName}`;
           mainTableExpression = option?.table_alias
             ? `${option.table_alias}.${group_by}`
             : group_by;
