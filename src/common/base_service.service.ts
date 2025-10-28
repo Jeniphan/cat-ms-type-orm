@@ -113,43 +113,57 @@ export class BaseService {
     }
 
     let total = 0;
-    // Filter
+    // Filter (supports exclusion with '!' prefix in filter values)
     if (
       query.filter_by &&
       query.filter_by.length > 0 &&
       query.filter &&
       query.filter.length > 0
     ) {
-      // Condition 'and'
+      const buildExpr = (col: string) => {
+        if (col.includes('.')) {
+          const [jsonColumn, jsonField] = col.split('.');
+          return `JSON_UNQUOTE(JSON_EXTRACT(${
+            option?.table_alias
+              ? `${option.table_alias}.${jsonColumn}`
+              : jsonColumn
+          }, '$.${jsonField}'))`;
+        }
+        return `${option?.table_alias ? `${option.table_alias}.${col}` : col}`;
+      };
+
       if (query.filter_condition === 'and') {
         q = q.andWhere(
           new Brackets((qb) => {
-            //Filter
             query.filter_by.forEach((filter_by, index) => {
-              const uuid = UUIDV4().split('-')[0];
-              const key = uuid + '_' + index;
-              if (filter_by.includes('.')) {
-                const [jsonColumn, jsonField] = filter_by.split('.');
+              const rawValues = Array.isArray(query.filter[index])
+                ? query.filter[index]
+                : [query.filter[index]];
 
-                qb = qb.andWhere(
-                  `JSON_UNQUOTE(JSON_EXTRACT(${
-                    option?.table_alias
-                      ? `${option.table_alias}.${jsonColumn}`
-                      : jsonColumn
-                  }, '$.${jsonField}')) in (:...${key})`,
-                  { [key]: query.filter[index] },
-                );
-              } else {
-                qb = qb.andWhere(
-                  `${
-                    option?.table_alias
-                      ? `${option.table_alias}.${filter_by}`
-                      : filter_by
-                  } in (:...${key})`,
-                  {
-                    [key]: query.filter[index],
-                  },
-                );
+              const includeVals = rawValues.filter(
+                (v) => !(typeof v === 'string' && v.startsWith('!')),
+              );
+              const excludeVals = rawValues
+                .filter((v) => typeof v === 'string' && v.startsWith('!'))
+                .map((v: string) => v.substring(1));
+
+              if (includeVals.length === 0 && excludeVals.length === 0) return;
+
+              const uuid = UUIDV4().split('-')[0];
+              const keyBase = `${uuid}_${index}`;
+              const keyIn = `${keyBase}_in`;
+              const keyNotIn = `${keyBase}_notin`;
+              const expr = buildExpr(filter_by);
+
+              if (includeVals.length > 0) {
+                qb = qb.andWhere(`${expr} IN (:...${keyIn})`, {
+                  [keyIn]: includeVals,
+                });
+              }
+              if (excludeVals.length > 0) {
+                qb = qb.andWhere(`${expr} NOT IN (:...${keyNotIn})`, {
+                  [keyNotIn]: excludeVals,
+                });
               }
             });
           }),
@@ -159,30 +173,39 @@ export class BaseService {
         q = q.andWhere(
           new Brackets((qb) => {
             query.filter_by.forEach((filter_by, index) => {
+              const rawValues = Array.isArray(query.filter[index])
+                ? query.filter[index]
+                : [query.filter[index]];
+
+              const includeVals = rawValues.filter(
+                (v) => !(typeof v === 'string' && v.startsWith('!')),
+              );
+              const excludeVals = rawValues
+                .filter((v) => typeof v === 'string' && v.startsWith('!'))
+                .map((v: string) => v.substring(1));
+
+              if (includeVals.length === 0 && excludeVals.length === 0) return;
+
               const uuid = UUIDV4().split('-')[0];
-              const key = uuid + '_' + index;
-              if (filter_by.includes('.')) {
-                const [jsonColumn, jsonField] = filter_by.split('.');
-                qb = qb.orWhere(
-                  `JSON_UNQUOTE(JSON_EXTRACT(${
-                    option?.table_alias
-                      ? `${option.table_alias}.${jsonColumn}`
-                      : jsonColumn
-                  }, '$.${jsonField}')) in (:...${key})`,
-                  { [key]: query.filter[index] },
-                );
-              } else {
-                qb = qb.orWhere(
-                  `${
-                    option?.table_alias
-                      ? `${option.table_alias}.${filter_by}`
-                      : filter_by
-                  } in (:...${key})`,
-                  {
-                    [key]: query.filter[index],
-                  },
-                );
-              }
+              const keyBase = `${uuid}_${index}`;
+              const keyIn = `${keyBase}_in`;
+              const keyNotIn = `${keyBase}_notin`;
+              const expr = buildExpr(filter_by);
+
+              qb = qb.orWhere(
+                new Brackets((subQb) => {
+                  if (includeVals.length > 0) {
+                    subQb.andWhere(`${expr} IN (:...${keyIn})`, {
+                      [keyIn]: includeVals,
+                    });
+                  }
+                  if (excludeVals.length > 0) {
+                    subQb.andWhere(`${expr} NOT IN (:...${keyNotIn})`, {
+                      [keyNotIn]: excludeVals,
+                    });
+                  }
+                }),
+              );
             });
           }),
         );
@@ -427,45 +450,115 @@ export class BaseService {
     //Group
     if (query.group_by && query.group_sort && query.group_sort_by) {
       let onTable = '';
+      const groupSelects = [];
+      const groupBys = [];
+
       query.group_by.forEach((group_by, index) => {
-        if (index !== 0) {
-          onTable = onTable + ` AND ${group_by} = ${group_by}`;
+        let groupExpression = '';
+        let selectExpression = '';
+        let mainTableExpression = '';
+        let aliasName = '';
+
+        if (group_by.includes('.')) {
+          // Handle JSON column grouping
+          const [jsonColumn, jsonField] = group_by.split('.');
+          aliasName = `${jsonColumn}_${jsonField}`;
+          groupExpression = `subQuery.${aliasName}`;
+          selectExpression = `JSON_UNQUOTE(JSON_EXTRACT(sub.${jsonColumn}, '$.${jsonField}')) as ${aliasName}`;
+          mainTableExpression = `JSON_UNQUOTE(JSON_EXTRACT(${
+            option?.table_alias
+              ? `${option.table_alias}.${jsonColumn}`
+              : jsonColumn
+          }, '$.${jsonField}'))`;
         } else {
-          onTable = `${group_by} = ${group_by}`;
+          // Handle regular column grouping
+          aliasName = group_by;
+          groupExpression = `subQuery.${group_by}`;
+          selectExpression = `sub.${group_by}`;
+          mainTableExpression = option?.table_alias
+            ? `${option.table_alias}.${group_by}`
+            : group_by;
+        }
+
+        groupSelects.push(selectExpression);
+
+        // For groupBy in subquery, use the original expression with sub alias
+        if (group_by.includes('.')) {
+          const [jsonColumn, jsonField] = group_by.split('.');
+          groupBys.push(
+            `JSON_UNQUOTE(JSON_EXTRACT(sub.${jsonColumn}, '$.${jsonField}'))`,
+          );
+        } else {
+          groupBys.push(`sub.${group_by}`);
+        }
+
+        if (index !== 0) {
+          onTable =
+            onTable + ` AND ${groupExpression} = ${mainTableExpression}`;
+        } else {
+          onTable = `${groupExpression} = ${mainTableExpression}`;
         }
       });
 
+      // Handle group_sort_by for JSON columns
+      let groupSortExpression = '';
+      let mainSortExpression = '';
+      let groupSortSelect = '';
+
+      if (query.group_sort_by.includes('.')) {
+        const [jsonColumn, jsonField] = query.group_sort_by.split('.');
+        groupSortExpression = `JSON_UNQUOTE(JSON_EXTRACT(sub.${jsonColumn}, '$.${jsonField}'))`;
+        mainSortExpression = `JSON_UNQUOTE(JSON_EXTRACT(${
+          option?.table_alias
+            ? `${option.table_alias}.${jsonColumn}`
+            : jsonColumn
+        }, '$.${jsonField}'))`;
+        groupSortSelect = `JSON_UNQUOTE(JSON_EXTRACT(sub.${jsonColumn}, '$.${jsonField}')) as ${jsonColumn}_${jsonField}_sort`;
+      } else {
+        groupSortExpression = `sub.${query.group_sort_by}`;
+        mainSortExpression = option?.table_alias
+          ? `${option.table_alias}.${query.group_sort_by}`
+          : query.group_sort_by;
+        groupSortSelect = `sub.${query.group_sort_by}`;
+      }
+
+      // Add group_sort column to select if not already included
+      if (!groupSelects.some((sel) => sel.includes(query.group_sort_by))) {
+        groupSelects.push(groupSortSelect);
+      }
+
       q = q.innerJoinAndSelect(
         (qb) => {
-          qb = qb
-            .select(query.group_by.map((select) => `sub.${select}`))
-            .from(repository, 'sub');
+          let subQuery = qb.select(groupSelects).from(repository, 'sub');
+
+          // Apply app_id filter to subquery if needed
+          if (option && option.app_id) {
+            subQuery = subQuery.where('sub.app_id = :appId', {
+              appId: (this.request.headers['app_id'] as string) ?? '1',
+            });
+          }
 
           if (query.group_sort === 'max') {
-            qb = qb.addSelect(
-              `MAX(sub.${query.group_sort_by})`,
+            subQuery = subQuery.addSelect(
+              `MAX(${groupSortExpression})`,
               'group_sort_value',
             );
           } else {
-            qb = qb.addSelect(
-              `MIN(sub.${query.group_sort_by})`,
+            subQuery = subQuery.addSelect(
+              `MIN(${groupSortExpression})`,
               'group_sort_value',
             );
           }
 
-          if (query.group_by.length > 0) {
-            for (const group of query.group_by) {
-              qb = qb.addGroupBy(`sub.${group}`);
+          if (groupBys.length > 0) {
+            for (const groupByExpr of groupBys) {
+              subQuery = subQuery.addGroupBy(groupByExpr);
             }
           }
-          return qb;
+          return subQuery;
         },
-        // StockEntity,
         'subQuery',
-        onTable +
-          ` AND group_sort_value = ${
-            option.table_alias ? option.table_alias + '.' : undefined
-          }${query.group_sort_by}`,
+        onTable + ` AND subQuery.group_sort_value = ${mainSortExpression}`,
       );
     }
 

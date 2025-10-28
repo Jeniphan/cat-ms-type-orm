@@ -1,38 +1,42 @@
 import {
-  BadRequestException,
   HttpException,
   HttpStatus,
   InternalServerErrorException,
+  Logger,
 } from '@nestjs/common';
-import { FastifyReply } from 'fastify';
 import { ZodError } from 'zod';
+import { AxiosError } from 'axios';
+import { TypeORMError } from 'typeorm';
 
 export default class ApiResponse {
-  constructor(private readonly reply: FastifyReply) {}
-
-  private getErrorMessage = (exception: unknown): string => {
-    return String(exception);
-  };
-
-  public error(err) {
+  public error(err: unknown) {
+    const logger = new Logger();
+    logger.log(err);
     if (err instanceof HttpException) {
-      throw err;
-    } else if (err instanceof ZodError) {
-      throw new BadRequestException(err.message);
+      return err;
+    } else if (
+      err instanceof ZodError ||
+      err instanceof AxiosError ||
+      err instanceof TypeORMError
+    ) {
+      return {
+        message: err.message,
+        status: HttpStatus.BAD_REQUEST,
+        result: err.stack,
+      };
     } else {
-      throw new InternalServerErrorException(err.message);
+      return new InternalServerErrorException(err);
     }
   }
-
   public handle(
     result: any,
     status: number = HttpStatus.OK,
     message = 'success',
   ) {
-    return this.reply.status(status).send({
+    return {
       message,
       status,
       result,
-    });
+    };
   }
 }

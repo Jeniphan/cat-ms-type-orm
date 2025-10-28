@@ -6,8 +6,9 @@ import {
 } from '@nestjs/platform-fastify';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { HttpExceptionFilter } from './helper/http-exception.filter';
-import { ApplicationGuard } from './application/application.guard';
+import { HttpExceptionFilter } from '@helper/http-exception.filter';
+import { ResponseInterceptor } from '@common/response/response.interceptor';
+import { loggerMiddleware } from '@common/logger/logger.middleware';
 
 async function bootstrap() {
   const port = process.env.PORT;
@@ -33,8 +34,10 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
 
   app.useGlobalFilters(new HttpExceptionFilter());
+  app.useGlobalInterceptors(new ResponseInterceptor());
+  app.use(loggerMiddleware);
 
-  app.useGlobalGuards(new ApplicationGuard());
+  // app.useGlobalGuards(new ApplicationGuard());
 
   const config = new DocumentBuilder()
     .setTitle('NestJS Template Microservice')
