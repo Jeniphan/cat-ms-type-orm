@@ -1,5 +1,6 @@
 import { Logger } from '@nestjs/common';
 import { FastifyReply, FastifyRequest } from 'fastify';
+import { version } from '../../version';
 
 export function loggerMiddleware(
   req: FastifyRequest,
@@ -8,6 +9,6 @@ export function loggerMiddleware(
 ) {
   const logger = new Logger('HTTP');
   const { method, url, ip } = req;
-  logger.log(`${method} ${url} - IP: ${ip}`);
+  logger.log(`${method} ${url} - IP: ${ip} - Version: ${version ?? '1.0.0'}`);
   next();
 }
